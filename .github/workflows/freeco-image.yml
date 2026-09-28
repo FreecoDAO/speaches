@@ -6,8 +6,10 @@
 # published to this account's registry, so what runs traces to a commit here
 # rather than to upstream's latest tag.
 #
-# CPU only: the machines FreEco.ai targets have no discrete GPU, and Whisper
-# small/base is practical on a CPU in a way a local LLM is not.
+# CPU only, and genuinely so: `.github/freeco/cpu_only.py` swaps the GPU
+# dependencies for CPU ones before locking. Without it the "CPU" image carried
+# NVIDIA libraries in a single 4.7 GB layer that a flaky connection could not
+# download.
 name: FreEco image
 
 on:
@@ -28,6 +30,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.10.x"
+
+      - name: CPU-only dependencies (no CUDA wheels)
+        run: |
+          python3 .github/freeco/cpu_only.py
+          uv lock
+
+      - name: Show what the GPU packages resolved to
+        run: |
+          echo "GPU packages left in the lock (should be none):"
+          grep -cE '^name = "(onnxruntime-gpu|nvidia-[a-z0-9-]+)"' uv.lock || true
+          grep -nE '^name = "(torch|onnxruntime)"' -A1 uv.lock | head -8
 
       - uses: docker/setup-buildx-action@v3
 
