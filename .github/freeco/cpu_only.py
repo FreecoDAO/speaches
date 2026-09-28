@@ -30,6 +30,15 @@ if not pattern.search(text):
 text = pattern.sub(lambda m: '"onnxruntime' + m.group(1).strip() + '"', text)
 
 # 3. PyTorch from the CPU wheel index, not PyPI's CUDA default.
+#
+# `[tool.uv.sources]` only applies to direct dependencies, and torch arrives
+# indirectly through pyannote-audio -- so a mapping alone was ignored and the
+# lock still took PyPI's CUDA torch with fourteen NVIDIA packages. Declaring
+# torch and torchaudio directly is what lets the mapping below take effect.
+marker = "dependencies = [\n"
+if text.count(marker) < 1:
+    sys.exit("expected a dependencies list in pyproject.toml; update cpu_only.py")
+text = text.replace(marker, marker + '    "torch",\n    "torchaudio",\n', 1)
 if "[tool.uv.sources]" in text:
     sys.exit("pyproject.toml already has [tool.uv.sources]; merge into it in cpu_only.py")
 text += """
